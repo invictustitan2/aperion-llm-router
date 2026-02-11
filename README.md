@@ -20,6 +20,8 @@ agents (Sentinel, AR, Aether), ensuring they can access LLMs reliably and cost-e
 ### Installation
 
 ```bash
+pip install aperion-switchboard
+
 # From source
 pip install -e .
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "aperion-switchboard"
-version = "0.1.0"
+version = "1.2.1"
 description = "The Switchboard - Unified LLM API Gateway with fail-closed semantics"
 readme = "README.md"
 license = "MIT"
@@ -42,6 +42,12 @@ dev = [
     "ruff>=0.6.0",
     "mypy>=1.11.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/invictustitan2/aperion-llm-router"
+Documentation = "https://github.com/invictustitan2/aperion-llm-router#readme"
+Repository = "https://github.com/invictustitan2/aperion-llm-router"
+"Bug Tracker" = "https://github.com/invictustitan2/aperion-llm-router/issues"
 
 [project.scripts]
 switchboard = "aperion_switchboard.main:main"
