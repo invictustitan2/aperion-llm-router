@@ -36,7 +36,8 @@ class ChatMessage(BaseModel):
         """Ensure message content is within size limits."""
         if v is not None and len(v) > MAX_MESSAGE_CONTENT_LENGTH:
             raise ValueError(
-                f"Message content exceeds maximum length of {MAX_MESSAGE_CONTENT_LENGTH:,} characters"
+                f"Message content exceeds maximum length of"
+                f" {MAX_MESSAGE_CONTENT_LENGTH:,} characters"
             )
         return v
 

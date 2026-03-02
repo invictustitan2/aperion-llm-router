@@ -15,9 +15,9 @@ from aperion_switchboard.service.middleware import MAX_REQUEST_BODY_SIZE
 def client():
     """Create test client with fresh rate limiter."""
     # Reset rate limiter to avoid cross-test interference
-    from aperion_switchboard.core.rate_limit import RateLimiter, RateLimitConfig, set_rate_limiter
+    from aperion_switchboard.core.rate_limit import RateLimitConfig, RateLimiter, set_rate_limiter
     set_rate_limiter(RateLimiter(RateLimitConfig(burst_size=100)))
-    
+
     app = create_app()
     return TestClient(app)
 

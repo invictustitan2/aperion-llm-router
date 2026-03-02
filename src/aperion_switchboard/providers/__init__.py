@@ -1,6 +1,5 @@
 """LLM Provider implementations."""
 
-import os
 from typing import Any
 
 import structlog
@@ -54,20 +53,20 @@ def list_providers() -> list[str]:
 def load_provider(name: str, **kwargs: Any) -> BaseProvider:
     """
     Load and instantiate a provider by name.
-    
+
     This is the primary factory function for creating providers,
     matching the aperion-legendary-ai API.
-    
+
     Args:
         name: Provider name (e.g., 'openai', 'gemini', 'workers_ai', 'echo')
         **kwargs: Additional arguments passed to the provider constructor
-        
+
     Returns:
         Instantiated provider
-        
+
     Raises:
         ValueError: If provider name is unknown
-        
+
     Example:
         provider = load_provider("workers_ai")
         result = provider.chat("Hello, world!")
@@ -77,23 +76,23 @@ def load_provider(name: str, **kwargs: Any) -> BaseProvider:
         raise ValueError(
             f"Unknown provider '{name}'. Available: {', '.join(list_providers())}"
         )
-    
+
     return provider_class(**kwargs)
 
 
 def safe_provider_load(name: str, **kwargs: Any) -> BaseProvider | None:
     """
     Safely load a provider, returning None if not available.
-    
+
     Unlike load_provider(), this function:
     - Returns None if provider is not configured
     - Catches and logs initialization errors
     - Useful for graceful fallback chains
-    
+
     Args:
         name: Provider name
         **kwargs: Additional arguments
-        
+
     Returns:
         Provider instance or None if unavailable
     """
@@ -118,7 +117,7 @@ def safe_provider_load(name: str, **kwargs: Any) -> BaseProvider | None:
 def provider_catalogue() -> list[dict[str, Any]]:
     """
     Get information about all available providers.
-    
+
     Returns:
         List of provider info dicts with name, configured status, and health
     """

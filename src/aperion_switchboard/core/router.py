@@ -10,11 +10,11 @@ Routes tasks to optimal providers based on:
 Cost optimization target: 75% savings by routing 80% volume to free tiers.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-from .fail_closed import get_safe_fallback_chain, is_echo_allowed
+from .fail_closed import is_echo_allowed
 from .protocol import LLMClient, ProviderError
 
 
@@ -369,16 +369,16 @@ def route_task(
 ) -> tuple[LLMClient, RoutingDecision]:
     """
     Convenience function to route a task and get provider.
-    
+
     This matches the aperion-legendary-ai API pattern.
-    
+
     Args:
         task_type: TaskType enum or string (e.g., "security_audit")
         providers: Optional providers dict (uses global router if not provided)
-        
+
     Returns:
         Tuple of (provider, routing decision)
-        
+
     Example:
         provider, decision = route_task(TaskType.CODE_REVIEW)
         result = provider.chat("Review this code...")
@@ -389,10 +389,10 @@ def route_task(
             task_type = TaskType(task_type)
         except ValueError:
             task_type = TaskType.GENERAL
-    
+
     if providers:
         router = LLMRouter(providers)
     else:
         router = get_router()
-    
+
     return router.get_provider(task_type)

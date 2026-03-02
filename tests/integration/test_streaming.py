@@ -6,6 +6,7 @@ Verifies OpenAI-compatible streaming responses.
 
 import json
 import os
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -79,10 +80,10 @@ class TestStreamingEndpoint:
         )
 
         content = response.text
-        lines = [l for l in content.split("\n") if l.startswith("data:")]
+        lines = [ln for ln in content.split("\n") if ln.startswith("data:")]
 
         assert len(lines) > 0, "Should have at least one data line"
-        assert any("[DONE]" in l for l in lines), "Should end with [DONE]"
+        assert any("[DONE]" in ln for ln in lines), "Should end with [DONE]"
 
     def test_streaming_chunks_are_valid_json(self, client):
         """Each streaming chunk (except [DONE]) is valid JSON."""
@@ -96,7 +97,7 @@ class TestStreamingEndpoint:
         )
 
         content = response.text
-        lines = [l for l in content.split("\n") if l.startswith("data:")]
+        lines = [ln for ln in content.split("\n") if ln.startswith("data:")]
 
         for line in lines:
             data = line.removeprefix("data:").strip()
@@ -122,7 +123,7 @@ class TestStreamingEndpoint:
         )
 
         content = response.text
-        lines = [l for l in content.split("\n") if l.startswith("data:")]
+        lines = [ln for ln in content.split("\n") if ln.startswith("data:")]
 
         # Find chunks with content
         content_chunks = []
@@ -153,7 +154,7 @@ class TestStreamingEndpoint:
         )
 
         content = response.text
-        lines = [l for l in content.split("\n") if l.startswith("data:")]
+        lines = [ln for ln in content.split("\n") if ln.startswith("data:")]
 
         # Find the chunk before [DONE]
         final_chunk = None

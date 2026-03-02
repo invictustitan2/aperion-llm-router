@@ -185,10 +185,10 @@ class ProviderRateLimitError(ProviderError):
 class LLMClientProtocol(Protocol):
     """
     Protocol version of LLMClient for duck typing compatibility.
-    
+
     Use this when you need to accept any object that implements the
     LLMClient interface without requiring explicit inheritance.
-    
+
     Example:
         def process(provider: LLMClientProtocol) -> str:
             return provider.chat("hello")["replies"][0]

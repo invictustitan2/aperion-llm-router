@@ -15,8 +15,8 @@ is actually returning deterministic echo responses instead of real
 LLM output - a catastrophic failure mode for security/strategy tasks.
 """
 
-import os
 import logging
+import os
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

@@ -164,7 +164,7 @@ def record_request(
 def record_circuit_state(provider: str, state: int) -> None:
     """
     Record circuit breaker state.
-    
+
     Args:
         provider: Provider name
         state: 0=closed, 1=open, 2=half_open
@@ -198,7 +198,7 @@ def record_routing_decision(
 def set_provider_health(provider: str, health: int) -> None:
     """
     Set provider health status.
-    
+
     Args:
         provider: Provider name
         health: 1=healthy, 0=unhealthy, -1=unknown

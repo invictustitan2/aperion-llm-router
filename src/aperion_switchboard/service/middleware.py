@@ -10,13 +10,13 @@ Implements:
 import logging
 import time
 import uuid
+from collections.abc import Callable
 from contextvars import ContextVar
-from typing import Callable
 
+import structlog
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
-import structlog
 
 # Context variable for correlation ID (thread-safe)
 correlation_id_var: ContextVar[str] = ContextVar("correlation_id", default="")
@@ -165,7 +165,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         if not auth_header.startswith("Bearer "):
             return Response(
-                content='{"error": {"message": "Missing or invalid Authorization header", "type": "auth_error"}}',
+                content=(
+                    '{"error": {"message": "Missing or invalid Authorization header",'
+                    ' "type": "auth_error"}}'
+                ),
                 status_code=401,
                 media_type="application/json",
             )
@@ -232,7 +235,11 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
         if content_length:
             if int(content_length) > self.max_size:
                 return Response(
-                    content='{"error": {"message": "Request body too large", "type": "request_error", "param": null, "code": "request_too_large"}}',
+                    content=(
+                        '{"error": {"message": "Request body too large",'
+                        ' "type": "request_error", "param": null,'
+                        ' "code": "request_too_large"}}'
+                    ),
                     status_code=413,
                     media_type="application/json",
                 )
@@ -279,7 +286,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 "Retry-After": str(int(result.retry_after or 1)),
             }
             return Response(
-                content='{"error": {"message": "Rate limit exceeded", "type": "rate_limit_error", "code": "rate_limit_exceeded"}}',
+                content=(
+                    '{"error": {"message": "Rate limit exceeded",'
+                    ' "type": "rate_limit_error",'
+                    ' "code": "rate_limit_exceeded"}}'
+                ),
                 status_code=429,
                 media_type="application/json",
                 headers=headers,

@@ -40,12 +40,12 @@ class TestTokenBucket:
     def test_consume_respects_capacity(self):
         """Cannot consume more tokens than available."""
         bucket = TokenBucket(capacity=5, refill_rate=1.0)
-        
+
         # Consume all tokens
         for _ in range(5):
             result = bucket.consume(1)
             assert result.allowed is True
-        
+
         # Next request should fail
         result = bucket.consume(1)
         assert result.allowed is False
@@ -56,13 +56,13 @@ class TestTokenBucket:
     def test_refill_over_time(self):
         """Tokens refill based on elapsed time."""
         bucket = TokenBucket(capacity=10, refill_rate=10.0)  # 10 tokens/second
-        
+
         # Consume all
         for _ in range(10):
             bucket.consume(1)
-        
+
         assert bucket.tokens < 1
-        
+
         # Wait a bit and check refill
         time.sleep(0.2)  # Should refill ~2 tokens
         result = bucket.consume(1)
@@ -71,11 +71,11 @@ class TestTokenBucket:
     def test_refill_caps_at_capacity(self):
         """Tokens don't exceed capacity after refill."""
         bucket = TokenBucket(capacity=5, refill_rate=100.0)  # Fast refill
-        
+
         # Consume one
         bucket.consume(1)
         time.sleep(0.1)  # Would refill 10 tokens, but capped at 5
-        
+
         result = bucket.consume(1)
         assert result.remaining <= 4  # At most capacity - 1
 
@@ -87,7 +87,7 @@ class TestRateLimiter:
         """Requests within rate limit are allowed."""
         config = RateLimitConfig(requests_per_minute=60, burst_size=10)
         limiter = RateLimiter(config)
-        
+
         for _ in range(10):  # Within burst
             result = limiter.check(key="test-key")
             assert result.allowed is True
@@ -96,12 +96,12 @@ class TestRateLimiter:
         """Requests exceeding burst limit are blocked."""
         config = RateLimitConfig(requests_per_minute=60, burst_size=5)
         limiter = RateLimiter(config)
-        
+
         # Exhaust burst
         for _ in range(5):
             result = limiter.check(key="test-key")
             assert result.allowed is True
-        
+
         # Next should be blocked
         result = limiter.check(key="test-key")
         assert result.allowed is False
@@ -114,15 +114,15 @@ class TestRateLimiter:
             per_key_burst=3,  # Lower per-key burst
         )
         limiter = RateLimiter(config)
-        
+
         # Exhaust key1's limit
         for _ in range(3):
             limiter.check(key="key1")
-        
+
         # key1 should be blocked
         result = limiter.check(key="key1")
         assert result.allowed is False
-        
+
         # key2 should still have capacity
         result = limiter.check(key="key2")
         assert result.allowed is True
@@ -135,12 +135,12 @@ class TestRateLimiter:
             per_key_burst=10,  # Per-key burst higher
         )
         limiter = RateLimiter(config)
-        
+
         # Multiple keys, but global limit should kick in
         for i in range(5):
             result = limiter.check(key=f"key{i}")
             assert result.allowed is True
-        
+
         # Global limit exhausted
         result = limiter.check(key="key999")
         assert result.allowed is False
@@ -149,11 +149,11 @@ class TestRateLimiter:
         """Requests without key use global limit only."""
         config = RateLimitConfig(burst_size=3)
         limiter = RateLimiter(config)
-        
+
         for _ in range(3):
             result = limiter.check(key=None)
             assert result.allowed is True
-        
+
         result = limiter.check(key=None)
         assert result.allowed is False
 
@@ -161,16 +161,16 @@ class TestRateLimiter:
         """Reset clears all buckets."""
         config = RateLimitConfig(burst_size=2)
         limiter = RateLimiter(config)
-        
+
         # Exhaust limits
         limiter.check(key="test")
         limiter.check(key="test")
         result = limiter.check(key="test")
         assert result.allowed is False
-        
+
         # Reset
         limiter.reset()
-        
+
         # Should be allowed again
         result = limiter.check(key="test")
         assert result.allowed is True
@@ -179,10 +179,10 @@ class TestRateLimiter:
         """Stats endpoint returns useful information."""
         config = RateLimitConfig(requests_per_minute=100, burst_size=10)
         limiter = RateLimiter(config)
-        
+
         limiter.check(key="key1")
         limiter.check(key="key2")
-        
+
         stats = limiter.get_stats()
         assert stats["per_key_count"] == 2
         assert stats["config"]["requests_per_minute"] == 100
@@ -195,16 +195,16 @@ class TestRateLimitMiddleware:
     def limited_client(self):
         """Create client with aggressive rate limiting."""
         from aperion_switchboard.core.rate_limit import set_rate_limiter
-        
+
         config = RateLimitConfig(requests_per_minute=60, burst_size=3)
         limiter = RateLimiter(config)
         set_rate_limiter(limiter)
-        
+
         app = create_app()
         client = TestClient(app)
-        
+
         yield client
-        
+
         # Reset after test
         limiter.reset()
 
@@ -214,7 +214,7 @@ class TestRateLimitMiddleware:
             "/v1/chat/completions",
             json={"messages": [{"role": "user", "content": "test"}]}
         )
-        
+
         assert "X-RateLimit-Limit" in response.headers
         assert "X-RateLimit-Remaining" in response.headers
         assert "X-RateLimit-Reset" in response.headers
@@ -229,16 +229,16 @@ class TestRateLimitMiddleware:
                 json={"messages": [{"role": "user", "content": "test"}]}
             )
             assert response.status_code in (200, 503)  # Not rate limited
-        
+
         # Next request should be rate limited (429 takes precedence)
         response = limited_client.post(
             "/v1/chat/completions",
             json={"messages": [{"role": "user", "content": "test"}]}
         )
-        
+
         assert response.status_code == 429
         assert "Retry-After" in response.headers
-        
+
         data = response.json()
         assert "error" in data
         assert "rate limit" in data["error"]["message"].lower()
@@ -251,7 +251,7 @@ class TestRateLimitMiddleware:
                 "/v1/chat/completions",
                 json={"messages": [{"role": "user", "content": "test"}]}
             )
-        
+
         # Health should still work
         response = limited_client.get("/health")
         assert response.status_code == 200
@@ -264,7 +264,7 @@ class TestRateLimitMiddleware:
                 "/v1/chat/completions",
                 json={"messages": [{"role": "user", "content": "test"}]}
             )
-        
+
         # Circuits should still work
         response = limited_client.get("/circuits")
         assert response.status_code == 200

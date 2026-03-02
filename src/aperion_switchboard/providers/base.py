@@ -356,51 +356,51 @@ class BaseProvider(LLMClient):
         """Check provider health via lightweight API call."""
         if not self.is_configured:
             return ProviderHealth.UNHEALTHY
-        
+
         # Check circuit breaker state
         circuit = get_circuit_breaker(self.name)
         if not circuit.can_execute():
             return ProviderHealth.UNHEALTHY
-        
+
         return ProviderHealth.HEALTHY
 
     async def health_check_async(self) -> ProviderHealth:
         """
         Async health check with actual provider ping.
-        
+
         Makes a minimal request to verify the provider is reachable.
         Returns HEALTHY, UNHEALTHY, or UNKNOWN.
         """
         if not self.is_configured:
             return ProviderHealth.UNHEALTHY
-        
+
         # Check circuit breaker first (fast path)
         circuit = get_circuit_breaker(self.name)
         if not circuit.can_execute():
             return ProviderHealth.UNHEALTHY
-        
+
         # Try a minimal API call
         if self._shared_async_client is None:
             return ProviderHealth.UNKNOWN
-        
+
         try:
             # Make a minimal request with short timeout
             url = self._build_url()
             headers = self._build_headers()
-            
+
             # Use a very short prompt for health check
             payload = self._build_payload(
                 prompt="Hi",
                 max_tokens=1,
             )
-            
+
             response = await self._shared_async_client.post(
                 url,
                 headers=headers,
                 json=payload,
                 timeout=5.0,  # Short timeout for health check
             )
-            
+
             if response.status_code in (200, 201):
                 return ProviderHealth.HEALTHY
             elif response.status_code in (401, 403):
@@ -411,7 +411,7 @@ class BaseProvider(LLMClient):
                 return ProviderHealth.HEALTHY
             else:
                 return ProviderHealth.UNHEALTHY
-                
+
         except httpx.TimeoutException:
             return ProviderHealth.UNHEALTHY
         except Exception:

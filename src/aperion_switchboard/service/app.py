@@ -16,14 +16,15 @@ import json
 import os
 import time
 import uuid
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator
+from typing import Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from fastapi.responses import JSONResponse, StreamingResponse
 import httpx
-from prometheus_fastapi_instrumentator import Instrumentator
 import structlog
+from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.responses import StreamingResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from ..core import (
     CircuitOpenError,
@@ -43,6 +44,14 @@ from ..providers import (
     WorkersAIProvider,
 )
 from ..providers.base import BaseProvider
+from .metrics import (
+    initialize_metrics,
+    record_cache_hit,
+    record_cache_miss,
+    record_request,
+    set_cache_size,
+    set_provider_health,
+)
 from .middleware import (
     AuthMiddleware,
     CostLoggingMiddleware,
@@ -51,15 +60,6 @@ from .middleware import (
     TelemetryMiddleware,
     configure_structlog,
     get_correlation_id,
-)
-from .metrics import (
-    initialize_metrics,
-    record_cache_hit,
-    record_cache_miss,
-    record_request,
-    record_circuit_state,
-    set_cache_size,
-    set_provider_health,
 )
 from .schemas import (
     ChatCompletionChunk,
@@ -189,7 +189,7 @@ def create_app() -> FastAPI:
 
     # Initialize Prometheus metrics
     initialize_metrics(version="0.1.0")
-    
+
     # Add Prometheus instrumentation for automatic HTTP metrics
     # Skip in test mode to avoid registry duplication
     if not os.environ.get("PYTEST_CURRENT_TEST"):
@@ -204,11 +204,11 @@ def create_app() -> FastAPI:
         except ValueError:
             # Metrics already registered (multiple app instances)
             pass
-    
+
     # Manually add /metrics endpoint
-    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
     from fastapi.responses import Response
-    
+    from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
     @app.get("/metrics", include_in_schema=False)
     async def metrics():
         """Prometheus metrics endpoint."""
@@ -242,9 +242,14 @@ async def health_check() -> HealthResponse:
             "configured": configured,
             "health": health.value,
         }
-        
+
         # Update Prometheus metric
-        health_value = 1 if health == ProviderHealth.HEALTHY else (0 if health == ProviderHealth.UNHEALTHY else -1)
+        if health == ProviderHealth.HEALTHY:
+            health_value = 1
+        elif health == ProviderHealth.UNHEALTHY:
+            health_value = 0
+        else:
+            health_value = -1
         set_provider_health(name, health_value)
 
         if configured and health in (ProviderHealth.HEALTHY, ProviderHealth.UNKNOWN):
@@ -413,7 +418,7 @@ async def chat_completions(
         use_cache = not body.stream and x_switchboard_no_cache != "true"
         cache = get_response_cache()
         cached_response = None
-        
+
         if use_cache:
             cached_response = cache.get(
                 prompt=prompt,
@@ -443,9 +448,15 @@ async def chat_completions(
                         for i, reply in enumerate(cached_response.get("replies", []))
                     ],
                     usage=CompletionUsage(
-                        prompt_tokens=cached_response.get("usage", {}).get("prompt_tokens", 0),
-                        completion_tokens=cached_response.get("usage", {}).get("completion_tokens", 0),
-                        total_tokens=cached_response.get("usage", {}).get("total_tokens", 0),
+                        prompt_tokens=cached_response.get("usage", {}).get(
+                            "prompt_tokens", 0
+                        ),
+                        completion_tokens=cached_response.get("usage", {}).get(
+                            "completion_tokens", 0
+                        ),
+                        total_tokens=cached_response.get("usage", {}).get(
+                            "total_tokens", 0
+                        ),
                     ),
                 )
             else:
@@ -587,7 +598,7 @@ async def chat_completions(
                 "provider": e.provider,
                 "recoverable": True,
             },
-        )
+        ) from e
 
     except ProviderError as e:
         elapsed_ms = (time.monotonic() - start_time) * 1000
@@ -616,7 +627,7 @@ async def chat_completions(
                 "provider": e.provider,
                 "recoverable": e.recoverable,
             },
-        )
+        ) from e
 
 
 async def get_circuits() -> dict:

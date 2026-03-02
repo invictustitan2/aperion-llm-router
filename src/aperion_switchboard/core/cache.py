@@ -18,13 +18,11 @@ import hashlib
 import json
 import time
 from collections import OrderedDict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from threading import RLock
 from typing import Any
 
 import structlog
-
-from .rate_limit import RateLimitResult
 
 logger = structlog.get_logger(__name__)
 

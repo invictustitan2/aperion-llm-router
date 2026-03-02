@@ -11,10 +11,10 @@ import pytest
 from pydantic import ValidationError
 
 from aperion_switchboard.service.schemas import (
-    ChatCompletionRequest,
-    ChatMessage,
     MAX_MESSAGE_CONTENT_LENGTH,
     MAX_MESSAGES_COUNT,
+    ChatCompletionRequest,
+    ChatMessage,
 )
 
 
@@ -37,7 +37,7 @@ class TestMessageContentValidation:
         content = "x" * (MAX_MESSAGE_CONTENT_LENGTH + 1)
         with pytest.raises(ValidationError) as exc_info:
             ChatMessage(role="user", content=content)
-        
+
         assert "exceeds maximum length" in str(exc_info.value)
 
     def test_message_content_none_allowed(self):
@@ -78,14 +78,14 @@ class TestMessageCountValidation:
         ]
         with pytest.raises(ValidationError) as exc_info:
             ChatCompletionRequest(messages=messages)
-        
+
         assert "Too many messages" in str(exc_info.value)
 
     def test_empty_messages_rejected(self):
         """Empty messages list should be rejected."""
         with pytest.raises(ValidationError) as exc_info:
             ChatCompletionRequest(messages=[])
-        
+
         assert "At least one message" in str(exc_info.value)
 
 
@@ -103,14 +103,14 @@ class TestUserIdValidation:
     def test_user_id_too_long_rejected(self):
         """User ID exceeding limit should be rejected."""
         from aperion_switchboard.service.schemas import MAX_USER_ID_LENGTH
-        
+
         long_user_id = "x" * (MAX_USER_ID_LENGTH + 1)
         with pytest.raises(ValidationError) as exc_info:
             ChatCompletionRequest(
                 messages=[ChatMessage(role="user", content="Hello")],
                 user=long_user_id
             )
-        
+
         # Pydantic max_length constraint
         assert "String should have at most" in str(exc_info.value)
 

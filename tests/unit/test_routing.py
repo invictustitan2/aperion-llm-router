@@ -4,6 +4,7 @@ Unit Tests for LLM Router - Task-based routing and cost optimization.
 
 import pytest
 
+from aperion_switchboard.core.fail_closed import is_echo_allowed
 from aperion_switchboard.core.router import (
     LLMRouter,
     RoutingDecision,
@@ -11,7 +12,6 @@ from aperion_switchboard.core.router import (
     get_router,
     reset_router,
 )
-from aperion_switchboard.core.fail_closed import is_echo_allowed
 
 
 @pytest.mark.unit

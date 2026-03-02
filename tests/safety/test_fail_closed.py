@@ -27,7 +27,7 @@ from aperion_switchboard.core.fail_closed import (
     is_echo_allowed,
     is_production_mode,
 )
-from aperion_switchboard.core.protocol import LLMClient, ProviderHealth
+from aperion_switchboard.core.protocol import LLMClient
 
 
 class MockProvider(LLMClient):
