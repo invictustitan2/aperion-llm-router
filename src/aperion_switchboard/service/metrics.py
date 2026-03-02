@@ -80,7 +80,14 @@ ROUTING_DECISIONS = Counter(
     ["task_type", "target_provider", "actual_provider"]
 )
 
-# Cache metrics
+# Prompt cache metrics (Anthropic-style server-side caching)
+PROMPT_CACHE_TOKENS = Counter(
+    "switchboard_prompt_cache_tokens_total",
+    "Prompt cache tokens (Anthropic cache_control)",
+    ["provider", "cache_event"]  # cache_event: creation, read
+)
+
+# Response cache metrics
 CACHE_HITS = Counter(
     "switchboard_cache_hits_total",
     "Total cache hits"
@@ -113,6 +120,8 @@ def record_request(
     tokens_prompt: int = 0,
     tokens_completion: int = 0,
     cost_usd: float = 0.0,
+    cache_creation_tokens: int = 0,
+    cache_read_tokens: int = 0,
 ) -> None:
     """Record metrics for a completed request."""
     REQUESTS_TOTAL.labels(
@@ -120,26 +129,36 @@ def record_request(
         task_type=task_type,
         status=status
     ).inc()
-    
+
     REQUEST_LATENCY.labels(
         provider=provider,
         task_type=task_type
     ).observe(latency_seconds)
-    
+
     if tokens_prompt > 0:
         TOKENS_TOTAL.labels(
             provider=provider,
             token_type="prompt"
         ).inc(tokens_prompt)
-    
+
     if tokens_completion > 0:
         TOKENS_TOTAL.labels(
             provider=provider,
             token_type="completion"
         ).inc(tokens_completion)
-    
+
     if cost_usd > 0:
         COST_USD_TOTAL.labels(provider=provider).inc(cost_usd)
+
+    # Anthropic prompt cache tokens
+    if cache_creation_tokens > 0:
+        PROMPT_CACHE_TOKENS.labels(
+            provider=provider, cache_event="creation"
+        ).inc(cache_creation_tokens)
+    if cache_read_tokens > 0:
+        PROMPT_CACHE_TOKENS.labels(
+            provider=provider, cache_event="read"
+        ).inc(cache_read_tokens)
 
 
 def record_circuit_state(provider: str, state: int) -> None:

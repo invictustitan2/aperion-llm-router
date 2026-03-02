@@ -485,6 +485,10 @@ async def chat_completions(
         completion_tokens = usage_data.get("completion_tokens", 0)
         total_tokens = usage_data.get("total_tokens", prompt_tokens + completion_tokens)
 
+        # Anthropic prompt cache tokens
+        cache_creation_tokens = usage_data.get("cache_creation_input_tokens", 0)
+        cache_read_tokens = usage_data.get("cache_read_input_tokens", 0)
+
         # Track usage in router
         _router.track_usage(
             provider_name=provider.name,
@@ -503,6 +507,8 @@ async def chat_completions(
                 "prompt": prompt_tokens,
                 "completion": completion_tokens,
                 "total": total_tokens,
+                "cache_creation": cache_creation_tokens,
+                "cache_read": cache_read_tokens,
             },
             "task_type": task_type.value,
         }
@@ -516,6 +522,8 @@ async def chat_completions(
             tokens_prompt=prompt_tokens,
             tokens_completion=completion_tokens,
             cost_usd=estimated_cost,
+            cache_creation_tokens=cache_creation_tokens,
+            cache_read_tokens=cache_read_tokens,
         )
 
         # Build response
@@ -544,16 +552,21 @@ async def chat_completions(
             )
             set_cache_size(cache.get_stats().size)
 
+        # Build usage with optional cache token fields
+        usage_response = CompletionUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+            cache_creation_input_tokens=cache_creation_tokens or None,
+            cache_read_input_tokens=cache_read_tokens or None,
+        )
+
         return ChatCompletionResponse(
             id=request_id,
             created=int(time.time()),
             model=result.get("model", body.model),
             choices=choices,
-            usage=CompletionUsage(
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=total_tokens,
-            ),
+            usage=usage_response,
             switchboard_provider=provider.name,
             switchboard_routing_reason=decision.reason,
         )

@@ -1,4 +1,4 @@
-"""Tests for response caching."""
+"""Tests for response caching and prompt cache token tracking."""
 
 import time
 from unittest.mock import patch
@@ -6,6 +6,8 @@ from unittest.mock import patch
 import pytest
 
 from aperion_switchboard.core.cache import CacheConfig, CacheEntry, ResponseCache
+from aperion_switchboard.service.metrics import record_request
+from aperion_switchboard.service.schemas import CompletionUsage
 
 
 class TestCacheConfig:
@@ -363,19 +365,110 @@ class TestCacheIntegration:
             "model": "echo",
             "messages": [{"role": "user", "content": "Bypass test message here"}],
         }
-        
+
         # First request - should populate cache
         client.post("/v1/chat/completions", json=body)
         stats1 = client.get("/cache").json()
-        
+
         # Request with bypass header - should not use cache
         client.post(
             "/v1/chat/completions",
             json=body,
             headers={"X-Switchboard-No-Cache": "true"},
         )
-        
+
         # Cache stats should show a miss for the bypassed request
         stats2 = client.get("/cache").json()
         # Misses should have increased by at least 1
         assert stats2["misses"] >= stats1["misses"]
+
+
+class TestCompletionUsageCacheFields:
+    """Tests for Anthropic prompt cache token fields in CompletionUsage."""
+
+    def test_cache_fields_default_to_none(self):
+        """Cache token fields should default to None (omitted in JSON)."""
+        usage = CompletionUsage(
+            prompt_tokens=100, completion_tokens=50, total_tokens=150
+        )
+        assert usage.cache_creation_input_tokens is None
+        assert usage.cache_read_input_tokens is None
+
+    def test_cache_fields_populated(self):
+        """Cache token fields should be settable."""
+        usage = CompletionUsage(
+            prompt_tokens=100,
+            completion_tokens=50,
+            total_tokens=150,
+            cache_creation_input_tokens=2048,
+            cache_read_input_tokens=0,
+        )
+        assert usage.cache_creation_input_tokens == 2048
+        assert usage.cache_read_input_tokens == 0
+
+    def test_cache_fields_in_json(self):
+        """Cache token fields should appear in JSON when set."""
+        usage = CompletionUsage(
+            prompt_tokens=100,
+            completion_tokens=50,
+            total_tokens=150,
+            cache_creation_input_tokens=1024,
+            cache_read_input_tokens=512,
+        )
+        data = usage.model_dump()
+        assert data["cache_creation_input_tokens"] == 1024
+        assert data["cache_read_input_tokens"] == 512
+
+    def test_cache_fields_excluded_when_none(self):
+        """Cache token fields should be excluded from JSON when None."""
+        usage = CompletionUsage(
+            prompt_tokens=100, completion_tokens=50, total_tokens=150
+        )
+        data = usage.model_dump(exclude_none=True)
+        assert "cache_creation_input_tokens" not in data
+        assert "cache_read_input_tokens" not in data
+
+
+class TestPromptCacheMetrics:
+    """Tests for prompt cache token Prometheus metrics."""
+
+    def test_record_request_with_cache_tokens(self):
+        """record_request should accept cache token arguments without error."""
+        # Should not raise — just verify the function accepts the new args
+        record_request(
+            provider="anthropic",
+            task_type="extended_thinking",
+            status="success",
+            latency_seconds=2.5,
+            tokens_prompt=1000,
+            tokens_completion=500,
+            cost_usd=0.0045,
+            cache_creation_tokens=2048,
+            cache_read_tokens=0,
+        )
+
+    def test_record_request_without_cache_tokens(self):
+        """record_request should work without cache token arguments (backwards compat)."""
+        record_request(
+            provider="openai",
+            task_type="code_review",
+            status="success",
+            latency_seconds=1.0,
+            tokens_prompt=500,
+            tokens_completion=200,
+            cost_usd=0.0002,
+        )
+
+    def test_record_request_cache_read_only(self):
+        """record_request should handle cache reads with zero creation tokens."""
+        record_request(
+            provider="anthropic",
+            task_type="complex_analysis",
+            status="success",
+            latency_seconds=1.5,
+            tokens_prompt=800,
+            tokens_completion=400,
+            cost_usd=0.003,
+            cache_creation_tokens=0,
+            cache_read_tokens=4096,
+        )

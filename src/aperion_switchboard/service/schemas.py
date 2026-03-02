@@ -152,6 +152,16 @@ class CompletionUsage(BaseModel):
     completion_tokens: int = Field(default=0, description="Tokens in the completion")
     total_tokens: int = Field(default=0, description="Total tokens used")
 
+    # Anthropic prompt cache tokens (Switchboard extension)
+    cache_creation_input_tokens: int | None = Field(
+        default=None,
+        description="Tokens written to Anthropic prompt cache (1.25x input price)",
+    )
+    cache_read_input_tokens: int | None = Field(
+        default=None,
+        description="Tokens read from Anthropic prompt cache (0.1x input price)",
+    )
+
 
 class ChoiceMessage(BaseModel):
     """Message in a completion choice."""
