@@ -30,6 +30,11 @@ class TestTaskType:
         assert TaskType.PRODUCTION_DECISION
         assert TaskType.STRATEGIC_ANALYSIS
 
+    def test_anthropic_task_types_exist(self):
+        """Anthropic reasoning task types must exist."""
+        assert TaskType.EXTENDED_THINKING
+        assert TaskType.COMPLEX_ANALYSIS
+
     def test_volume_task_types_exist(self):
         """Volume/documentation task types must exist."""
         assert TaskType.DOC_UPDATE
@@ -206,6 +211,80 @@ class TestLLMRouter:
         assert summary["openai_only_cost_usd"] > 0
         assert summary["savings_percent"] == 100.0
 
+    def test_route_extended_thinking_to_anthropic(self):
+        """Extended thinking tasks should route to Anthropic."""
+        router = LLMRouter()
+        decision = router.route(TaskType.EXTENDED_THINKING)
+
+        assert decision.provider_name == "anthropic"
+        assert decision.estimated_cost_per_1m_tokens == 3.00
+        assert decision.expected_latency == "slow"
+
+    def test_route_complex_analysis_to_anthropic(self):
+        """Complex analysis tasks should route to Anthropic."""
+        router = LLMRouter()
+        decision = router.route(TaskType.COMPLEX_ANALYSIS)
+
+        assert decision.provider_name == "anthropic"
+        assert "claude" in decision.reason.lower() or "analysis" in decision.reason.lower()
+
+    def test_fallback_chain_for_anthropic_tasks(self):
+        """Anthropic tasks should have anthropic-first fallback chain."""
+        router = LLMRouter()
+        decision = router.route(TaskType.EXTENDED_THINKING)
+
+        # Anthropic should be first in the fallback chain
+        assert decision.fallback_chain[0] == "anthropic"
+        # Premium (OpenAI) should follow as second tier
+        assert "openai" in decision.fallback_chain
+        anthropic_idx = decision.fallback_chain.index("anthropic")
+        openai_idx = decision.fallback_chain.index("openai")
+        assert anthropic_idx < openai_idx
+
+    def test_anthropic_fallback_includes_all_paid_tiers(self):
+        """Anthropic fallback chain should cascade through paid then free tiers."""
+        router = LLMRouter()
+        decision = router.route(TaskType.COMPLEX_ANALYSIS)
+
+        # Should include: anthropic → openai → workers_ai → gemini
+        assert "anthropic" in decision.fallback_chain
+        assert "openai" in decision.fallback_chain
+        assert "workers_ai" in decision.fallback_chain
+        assert "gemini" in decision.fallback_chain
+
+    def test_critical_tasks_include_anthropic_in_fallback(self):
+        """Critical (premium) tasks should now have anthropic in fallback chain."""
+        router = LLMRouter()
+        decision = router.route(TaskType.SECURITY_AUDIT)
+
+        # Premium first, anthropic second
+        assert decision.fallback_chain[0] == "openai"
+        assert "anthropic" in decision.fallback_chain
+        openai_idx = decision.fallback_chain.index("openai")
+        anthropic_idx = decision.fallback_chain.index("anthropic")
+        assert openai_idx < anthropic_idx
+
+    def test_anthropic_tier_defined(self):
+        """TIER_ANTHROPIC should be defined as a provider tier."""
+        router = LLMRouter()
+        assert hasattr(router, "TIER_ANTHROPIC")
+        assert router.TIER_ANTHROPIC == ["anthropic"]
+
+    def test_anthropic_cost_in_table(self):
+        """Anthropic cost should be in cost table."""
+        assert "anthropic" in LLMRouter.COST_PER_1M_TOKENS
+        assert LLMRouter.COST_PER_1M_TOKENS["anthropic"] == 3.00
+
+    def test_track_usage_anthropic(self):
+        """track_usage should work for anthropic provider."""
+        router = LLMRouter()
+        router.track_usage("anthropic", tokens=10000, latency_ms=5000, success=True)
+
+        stats = router.get_stats()
+        assert stats["anthropic"]["requests"] == 1
+        assert stats["anthropic"]["tokens"] == 10000
+        assert stats["anthropic"]["cost_usd"] == pytest.approx(0.03)  # 10K * 3.00/1M
+
     def test_all_task_types_have_routing(self):
         """All TaskType enums should have routing defined."""
         router = LLMRouter()
@@ -220,6 +299,8 @@ class TestLLMRouter:
         [
             (TaskType.SECURITY_AUDIT, "premium"),
             (TaskType.PRODUCTION_DECISION, "premium"),
+            (TaskType.EXTENDED_THINKING, "anthropic"),
+            (TaskType.COMPLEX_ANALYSIS, "anthropic"),
             (TaskType.LINT_ANALYSIS, "free_volume"),
             (TaskType.DOC_UPDATE, "free_volume"),
         ],
@@ -231,6 +312,8 @@ class TestLLMRouter:
 
         if expected_tier == "premium":
             assert decision.provider_name in router.TIER_PREMIUM
+        elif expected_tier == "anthropic":
+            assert decision.provider_name in router.TIER_ANTHROPIC
         elif expected_tier == "free_volume":
             assert decision.provider_name in router.TIER_FREE_VOLUME
 

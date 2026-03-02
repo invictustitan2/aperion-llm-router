@@ -39,6 +39,10 @@ class TaskType(Enum):
     SUMMARY_GENERATION = "summary_generation"
     API_DOCUMENTATION = "api_documentation"
 
+    # Premium reasoning tasks → Anthropic (Claude)
+    EXTENDED_THINKING = "extended_thinking"
+    COMPLEX_ANALYSIS = "complex_analysis"
+
     # Development tasks → Local provider (Echo) ONLY when allowed
     TESTING = "testing"
     DEVELOPMENT = "development"
@@ -96,6 +100,7 @@ class LLMRouter:
     """
 
     # Provider tier definitions
+    TIER_ANTHROPIC = ["anthropic"]  # Paid, advanced reasoning + caching
     TIER_PREMIUM = ["openai"]  # Paid, best quality
     TIER_CLOUDFLARE = ["workers_ai"]  # Low-cost Cloudflare Workers AI
     TIER_FREE_VOLUME = ["gemini"]  # Free, high volume (60 RPM)
@@ -103,6 +108,7 @@ class LLMRouter:
 
     # Cost estimates per 1M tokens (input + output averaged)
     COST_PER_1M_TOKENS: dict[str, float] = {
+        "anthropic": 3.00,  # Claude Sonnet input avg
         "openai": 0.30,  # GPT-4.1-mini average
         "workers_ai": 0.011,  # Cloudflare Workers AI
         "gemini": 0.00,  # Free tier
@@ -123,6 +129,8 @@ class LLMRouter:
         TaskType.DOC_GENERATION: ("gemini", "Batch doc creation - free tier"),
         TaskType.SUMMARY_GENERATION: ("gemini", "Volume processing - free tier"),
         TaskType.API_DOCUMENTATION: ("gemini", "Documentation task - free tier"),
+        TaskType.EXTENDED_THINKING: ("anthropic", "Deep reasoning requires extended thinking"),
+        TaskType.COMPLEX_ANALYSIS: ("anthropic", "Multi-step analysis benefits from Claude"),
         TaskType.TESTING: ("echo", "Development/testing - local only"),
         TaskType.DEVELOPMENT: ("echo", "Local development - no API needed"),
         TaskType.OFFLINE_WORK: ("echo", "No API needed - local only"),
@@ -176,13 +184,25 @@ class LLMRouter:
 
         # Build fallback chain based on task criticality
         if task_type in (
+            TaskType.EXTENDED_THINKING,
+            TaskType.COMPLEX_ANALYSIS,
+        ):
+            # Anthropic tasks: anthropic → openai → cloudflare → free
+            fallback_chain = (
+                self.TIER_ANTHROPIC
+                + self.TIER_PREMIUM
+                + self.TIER_CLOUDFLARE
+                + self.TIER_FREE_VOLUME
+            )
+        elif task_type in (
             TaskType.SECURITY_AUDIT,
             TaskType.PRODUCTION_DECISION,
             TaskType.STRATEGIC_ANALYSIS,
         ):
-            # Critical tasks: premium → cloudflare → free volume → (local if allowed)
+            # Critical tasks: premium → anthropic → cloudflare → free
             fallback_chain = (
                 self.TIER_PREMIUM
+                + self.TIER_ANTHROPIC
                 + self.TIER_CLOUDFLARE
                 + self.TIER_FREE_VOLUME
             )
@@ -205,6 +225,8 @@ class LLMRouter:
             expected_latency = "fast"
         elif provider_name in self.TIER_PREMIUM:
             expected_latency = "medium"
+        elif provider_name in self.TIER_ANTHROPIC:
+            expected_latency = "slow"  # Extended thinking can take longer
         else:
             expected_latency = "instant"
 
