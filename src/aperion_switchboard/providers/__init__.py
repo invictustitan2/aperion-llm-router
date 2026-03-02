@@ -5,6 +5,7 @@ from typing import Any
 
 import structlog
 
+from .anthropic import AnthropicProvider
 from .base import BaseProvider
 from .echo import EchoProvider
 from .gemini import GeminiProvider
@@ -14,6 +15,7 @@ from .workers import WorkersAIProvider
 logger = structlog.get_logger(__name__)
 
 __all__ = [
+    "AnthropicProvider",
     "BaseProvider",
     "EchoProvider",
     "GeminiProvider",
@@ -29,6 +31,8 @@ __all__ = [
 
 # Provider registry for dynamic loading
 PROVIDER_REGISTRY: dict[str, type[BaseProvider]] = {
+    "anthropic": AnthropicProvider,
+    "claude": AnthropicProvider,  # Alias
     "openai": OpenAIProvider,
     "gemini": GeminiProvider,
     "workers_ai": WorkersAIProvider,

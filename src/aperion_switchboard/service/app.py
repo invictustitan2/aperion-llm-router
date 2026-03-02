@@ -36,6 +36,7 @@ from ..core import (
 from ..core.protocol import LLMClient, ProviderError, ProviderHealth
 from ..core.resilience import get_all_circuit_stats
 from ..providers import (
+    AnthropicProvider,
     EchoProvider,
     GeminiProvider,
     OpenAIProvider,
@@ -82,6 +83,7 @@ _router: LLMRouter | None = None
 def _init_providers() -> dict[str, LLMClient]:
     """Initialize all provider instances."""
     return {
+        "anthropic": AnthropicProvider(),
         "openai": OpenAIProvider(),
         "gemini": GeminiProvider(),
         "workers_ai": WorkersAIProvider(),
